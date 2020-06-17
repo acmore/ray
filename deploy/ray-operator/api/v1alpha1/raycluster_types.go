@@ -33,12 +33,23 @@ const (
 	ReplicaTypeHead ReplicaType = "head"
 	// ReplicaTypeWorker means that this pod will be ray cluster worker
 	ReplicaTypeWorker ReplicaType = "worker"
+
+	// ClusterStatusPending means that cluster is pending for scheduling
+	ClusterStatusPending = "pending"
+	// ClusterStatusReady means that the head node is running and there is at least one worker node is ready
+	ClusterStatusReady = "ready"
+	// ClusterStatusStopped means that the head node is deleted
+	ClusterStatusStopped = "stopped"
 )
 
 // RayClusterStatus defines the observed state of RayCluster
 type RayClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// Cluster status in one of ["pending", "ready"]
+	Status string `json:"status,omitempty"`
+	// Active replicas other than head node in cluster
+	Active int32 `json:"active,omitempty"`
 }
 
 // +genclient

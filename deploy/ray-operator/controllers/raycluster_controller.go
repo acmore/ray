@@ -3,19 +3,20 @@ package controllers
 import (
 	"context"
 	"fmt"
-	mapset "github.com/deckarep/golang-set"
-	"github.com/go-logr/logr"
-	_ "k8s.io/api/apps/v1beta1"
 	rayiov1alpha1 "ray-operator/api/v1alpha1"
 	"ray-operator/controllers/common"
 	_ "ray-operator/controllers/common"
 	"ray-operator/controllers/utils"
 	"strings"
 
+	mapset "github.com/deckarep/golang-set"
+	"github.com/go-logr/logr"
+	_ "k8s.io/api/apps/v1beta1"
+
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -127,11 +128,11 @@ func (r *RayClusterReconciler) Reconcile(request reconcile.Request) (reconcile.R
 			svcConf := common.DefaultServiceConfig(*instance, podName)
 			rayPodSvc := common.ServiceForPod(svcConf)
 			blockOwnerDeletion := true
-			ownerReference :=  metav1.OwnerReference{
-				APIVersion: instance.APIVersion,
-				Kind: instance.Kind,
-				Name: instance.Name,
-				UID: instance.UID,
+			ownerReference := metav1.OwnerReference{
+				APIVersion:         instance.APIVersion,
+				Kind:               instance.Kind,
+				Name:               instance.Name,
+				UID:                instance.UID,
 				BlockOwnerDeletion: &blockOwnerDeletion,
 			}
 			rayPodSvc.OwnerReferences = append(rayPodSvc.OwnerReferences, ownerReference)
@@ -149,12 +150,33 @@ func (r *RayClusterReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	}
 
 	// Check if each pod exists and if not, create it.
+	var isHeadPodRunning bool
+	var activeCount int32
 	for i, replica := range replicas {
 		if !utils.IsCreated(&replica) {
 			log.Info("Creating pod", "index", i, "create pod", replica.Name)
 			if err := r.Create(context.TODO(), &replica); err != nil {
 				return reconcile.Result{}, err
 			}
+		} else if strings.EqualFold(replica.Labels[common.ClusterPodType], common.Head) {
+			isHeadPodRunning = utils.IsRunning(&replica)
+		} else if utils.IsRunning(&replica) {
+			activeCount++
+		}
+	}
+
+	// Update cluster status
+	expectedStatus := rayiov1alpha1.ClusterStatusPending
+	if isHeadPodRunning {
+		expectedStatus = rayiov1alpha1.ClusterStatusReady
+	}
+	if instance.Status.Status != expectedStatus || instance.Status.Active != activeCount {
+		log.Info("Updating status from ", instance.Status.Status, "to", expectedStatus, "last active:", instance.Status.Active, "current active:", activeCount)
+		instance.Status.Status = expectedStatus
+		instance.Status.Active = activeCount
+		if err := r.Update(context.TODO(), instance); err != nil {
+			log.Error(err, "Update status error")
+			return reconcile.Result{}, err
 		}
 	}
 

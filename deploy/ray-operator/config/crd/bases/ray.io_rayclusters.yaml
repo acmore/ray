@@ -2192,6 +2192,16 @@ spec:
           type: object
         status:
           description: RayClusterStatus defines the observed state of RayCluster
+          properties:
+            active:
+              description: Active replicas other than head node in cluster
+              format: int32
+              type: integer
+            status:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "make" to regenerate code after modifying
+                this file Cluster status in one of ["pending", "ready"]'
+              type: string
           type: object
       type: object
   version: v1alpha1

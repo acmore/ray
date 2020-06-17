@@ -1,14 +1,19 @@
 package utils
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"strconv"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // IsCreated returns true if pod has been created and is maintained by the API server
 func IsCreated(pod *corev1.Pod) bool {
 	return pod.Status.Phase != ""
+}
+
+func IsRunning(pod *corev1.Pod) bool {
+	return pod.Status.Phase == corev1.PodRunning
 }
 
 // Get substring before a string.
